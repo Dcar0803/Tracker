@@ -1,3 +1,4 @@
+// WaterEntryAdapter.kt
 package com.example.tracker
 
 import android.view.LayoutInflater
@@ -6,8 +7,7 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 
-
-class WaterEntryAdapter(private val entries: List<WaterEntry>) :
+class WaterEntryAdapter(var entries: MutableList<WaterEntry>) :
     RecyclerView.Adapter<WaterEntryAdapter.EntryViewHolder>() {
 
     inner class EntryViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {

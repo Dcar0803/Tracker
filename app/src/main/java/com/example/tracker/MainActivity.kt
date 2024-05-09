@@ -4,20 +4,16 @@ import android.os.Bundle
 import android.widget.Button
 import android.widget.EditText
 import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import com.google.android.material.bottomnavigation.BottomNavigationView
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Date
+import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
-    private lateinit var recyclerView: RecyclerView
-    private lateinit var adapter: WaterEntryAdapter
-    private lateinit var waterEntryDao: WaterEntryDao
-    private lateinit var amountEditText: EditText
+    private lateinit var waterEntryViewModel: WaterEntryViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -26,15 +22,17 @@ class MainActivity : AppCompatActivity() {
         val dashboardFragment = DashboardFragment()
         supportFragmentManager.beginTransaction().replace(R.id.fragment_container, dashboardFragment).commit()
 
-        recyclerView = findViewById(R.id.recyclerView)
+        val recyclerView: RecyclerView = findViewById(R.id.recyclerView)
         recyclerView.layoutManager = LinearLayoutManager(this)
-        adapter = WaterEntryAdapter(emptyList())
+        val adapter = WaterEntryAdapter(mutableListOf())
         recyclerView.adapter = adapter
 
         val db = WaterDatabase.getInstance(this)
-        waterEntryDao = db.waterEntryDao()
+        val waterEntryDao = db.waterEntryDao()
 
-        amountEditText = findViewById(R.id.amountEditText)
+        waterEntryViewModel = ViewModelProvider(this, WaterEntryViewModelFactory(application)).get(WaterEntryViewModel::class.java)
+
+        val amountEditText: EditText = findViewById(R.id.amountEditText)
 
         val addEntryButton: Button = findViewById(R.id.addEntryButton)
         addEntryButton.setOnClickListener {
@@ -44,32 +42,33 @@ class MainActivity : AppCompatActivity() {
                     date = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date()),
                     amount = amount
                 )
-                insertEntry(entry)
+                waterEntryViewModel.insertEntry(entry)
                 amountEditText.text.clear()
             } else {
                 // Show error message or handle invalid input
             }
         }
 
-        updateEntries()
-    }
+        waterEntryViewModel.allEntries.observe(this, { entries ->
+            adapter.entries = entries.toMutableList()
+            adapter.notifyDataSetChanged()
+        })
 
-    private fun insertEntry(entry: WaterEntry) {
-        lifecycleScope.launch {
-            withContext(Dispatchers.IO) {
-                waterEntryDao.insertEntry(entry)
+        // Set up BottomNavigationView
+        val bottomNavigationView = findViewById<BottomNavigationView>(R.id.bottom_navigation)
+        bottomNavigationView.setOnNavigationItemSelectedListener { item ->
+            when (item.itemId) {
+                R.id.navigation_dashboard -> {
+                    supportFragmentManager.beginTransaction().replace(R.id.fragment_container, dashboardFragment).commit()
+                    true
+                }
+                R.id.navigation_entry -> {
+                    val averageConsumptionFragment = AverageConsumptionFragment()
+                    supportFragmentManager.beginTransaction().replace(R.id.fragment_container, averageConsumptionFragment).commit()
+                    true
+                }
+                else -> false
             }
-            updateEntries()
-        }
-    }
-
-    private fun updateEntries() {
-        lifecycleScope.launch {
-            val entries = withContext(Dispatchers.IO) {
-                waterEntryDao.getAllEntries()
-            }
-            adapter = WaterEntryAdapter(entries)
-            recyclerView.adapter = adapter
         }
     }
 }
